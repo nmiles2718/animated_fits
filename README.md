@@ -1,1 +1,1 @@
-# Python script for making animated plots using fits datal
+# Python script for making animated plots using fits data
