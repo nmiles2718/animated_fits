@@ -67,7 +67,7 @@ parser.add_argument("-save",
                     default=None)
 
 
-class GifObj(object):
+class AnimationObj(object):
     """
     This class is intended to create an animated matplotlib plot given a list 
     of input parameters. There are two ways to use this; the first is from the 
@@ -180,7 +180,7 @@ class GifObj(object):
                     value = date
             self.key_values.append(value)
 
-    def mkgif(self, flist=None):
+    def animate(self, flist=None):
         """ Class method for creating the actual animated plot.
         
         Parameters
@@ -286,12 +286,12 @@ def main():
     path, suffix, x_center, y_center, dx, dy, ext, keyword, save = \
         parse_cmd_line()
 
-    # Create an instance of the gif class, initializing with the cmd line args
-    gif_obj = GifObj(path, suffix, x_center,
+    # Create an instance of the animation class, initializing with the cmd line args
+    animation_obj = AnimationObj(path, suffix, x_center,
                      y_center, dx, dy, ext, keyword, save)
 
-    # Call the method to create the actual gif
-    gif_obj.mkgif()
+    # Call the method to create the actual animation
+    animation_obj.animate()
     
 if __name__ == '__main__':
     main()
