@@ -73,7 +73,7 @@ class AnimationObj(object):
     of input parameters. There are two ways to use this; the first is from the 
     command line and the second is by importing this into your scripts and 
     instantiating the class with your desired inputs, then calling the
-    GifObj.mkgif method
+    AnimationObj.animate() method with a set of files.
     """
     def __init__(self, path, suffix,
                  x_center, y_center, dx, dy,
