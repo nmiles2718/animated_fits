@@ -13,6 +13,7 @@ import glob
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numpy as np
 import os
 
 
@@ -32,23 +33,19 @@ parser.add_argument("-suffix",
 
 parser.add_argument("-xcenter",
                     help="x value for center of box slice",
-                    type=int,
-                    default=2850)
+                    type=int)
 
 parser.add_argument("-ycenter",
                     help="y value for center of box slice",
-                    type=int,
-                    default=1550)
+                    type=int)
 
 parser.add_argument("-dx",
                     help="width of box slice",
-                    type=int,
-                    default=250)
+                    type=int)
 
 parser.add_argument("-dy",
                     help="height of box slice",
-                    type=int,
-                    default=350)
+                    type=int)
 
 parser.add_argument("-ext",
                     help="extension of fits file",
@@ -58,7 +55,11 @@ parser.add_argument("-ext",
 parser.add_argument("-keyword",
                     help="keyword to sort file list by",
                     type=str,
-                    default='darktime')
+                    default=None)
+
+parser.add_argument("-scale",
+                    help="apply min/max scaling (default is z-scale)",
+                    action='store_true')
 
 parser.add_argument("-save",
                     help="filename (e.g. animated_fits.mp4) of mp4 to save "
@@ -77,7 +78,7 @@ class AnimationObj(object):
     """
     def __init__(self, path, suffix,
                  x_center, y_center, dx, dy,
-                 ext, keyword, save):
+                 ext, keyword, scale, save):
         """
         Parameters
         ----------
@@ -100,10 +101,11 @@ class AnimationObj(object):
         self.dy = dy
         self.ext = ext
         self.keyword = keyword
+        self.scale = scale
         self.save = save
         # Initialize parameters for plotting the data
         self.im = None
-        self.fig = plt.figure(figsize=(6, 8))
+        self.fig = plt.figure()
         self.ax = self.fig.add_subplot(1, 1, 1)
         self.flist = []
         self.img_data = []
@@ -124,25 +126,23 @@ class AnimationObj(object):
             y2 = self.y_center + self.dy
             x1 = self.x_center - self.dx
             x2 = self.x_center + self.dx
-            try:
-                chip_slice = chip[y1:y2, x1:x2]
-            except IndexError as e:
-                raise e
-            else:
-                self.img_data.append(chip_slice)
-                # return data
+            chip_slice = chip[y1:y2, x1:x2]
+            self.img_data.append(chip_slice)
+
         else:
             self.img_data.append(chip)
-            # return chip
 
     def updatefig(self, i):
         """Update the figure to display the ith frame.
         """
         self.im.set_array(self.img_data[i])
-        self.ax.set_title('{}, {} = {}'.format(
-                                               os.path.basename(self.flist[i]),
-                                               self.keyword,
-                                               self.key_values[i]))
+        if self.keyword:
+            self.ax.set_title('{}, {} '+\
+                '= {}'.format(os.path.basename(self.flist[i]),
+                              self.keyword,
+                              self.key_values[i]))
+        else:
+            self.ax.set_title('{}'.format(os.path.basename(self.flist[i])))
         return [self.im]
 
     def quick_sort(self):
@@ -217,31 +217,49 @@ class AnimationObj(object):
             with mp.Pool(processes = cpu_count) as pool:
                 pool.map(self.grab_header_value, self.flist)
             '''
+
             for f in self.flist:
                 self.grab_data(f)
+
+            if self.keyword:
                 self.grab_header_value(f)
-
-            self.quick_sort()  # Sort the data
-
-            # Initialize some plot things
-            self.ax.set_title('{}, {} = {}'.
-                              format(os.path.basename(self.flist[0]),
-                                     self.keyword,
-                                     self.key_values[0]))
+                self.quick_sort()  # Sort the data
+                # Initialize some plot things
+                self.ax.set_title('{}, {} = {}'.
+                                  format(os.path.basename(self.flist[0]),
+                                         self.keyword,
+                                         self.key_values[0]))
+            else:
+                self.ax.set_title('{}'.format(os.path.basename(self.flist[0])))
             self.ax.set_xlabel('X [pix]')
             self.ax.set_ylabel('Y [pix]')
 
             # Grab index value to set the normalization/stretch
             idx = int(len(self.flist) / 2)
 
+
             # Set the scaling to match ds9 z-scale with linear stretch
-            norm = ImageNormalize(self.img_data[idx],
-                                  stretch=LinearStretch(),
-                                  interval=ZScaleInterval())
+            if self.scale:
+                norm = ImageNormalize(self.img_data[idx],
+                                      vmin=np.min(self.img_data[idx].ravel()),
+                                      vmax=np.max(self.img_data[idx].ravel()))
+            else:
+                norm = ImageNormalize(self.img_data[idx],
+                                      stretch=LinearStretch(),
+                                      interval=ZScaleInterval())
             # Draw the first image
-            self.im = self.ax.imshow(self.img_data[0],
-                                     animated=True, origin='lower',
-                                     norm=norm, cmap='Greys_r')
+            if self.dx and self.dy and self.x_center and self.y_center:
+                self.im = self.ax.imshow(self.img_data[0],
+                                         animated=True, origin='lower',
+                                         norm=norm, cmap='gray',
+                                         extent=[self.x_center - self.dx,
+                                                 self.x_center + self.dx,
+                                                 self.y_center - self.dy,
+                                                 self.y_center + self.dy])
+            else:
+                self.im = self.ax.imshow(self.img_data[0],
+                                         animated=True, origin='lower',
+                                         norm=norm, cmap='gray')
 
             # Add a nice colorbar with a label showing the img units
             divider = make_axes_locatable(self.ax)
@@ -255,8 +273,9 @@ class AnimationObj(object):
                                           interval=500, blit=False)
             if self.save:
                 ani.save(filename=self.save, writer='ffmpeg',
-                         dpi=200, bitrate=80)
+                         dpi=200, bitrate=100)
             else:
+                plt.tight_layout()
                 plt.show()
         else:
             print('No files were found at {}'.format(self.path+self.suffix))
@@ -275,20 +294,21 @@ def parse_cmd_line():
     dy = args.dy
     ext = args.ext
     keyword = args.keyword
+    scale = args.scale
     save = args.save
-    return path, suffix, x_center, y_center, dx, dy, ext, keyword, save
+    return path, suffix, x_center, y_center, dx, dy, ext, keyword, scale, save
 
 
 def main():
     """ Create the animation using user supplied cmd-line args (or defaults)
     """
     # Parse cmd line args, if none provided uses defaults set above
-    path, suffix, x_center, y_center, dx, dy, ext, keyword, save = \
+    path, suffix, x_center, y_center, dx, dy, ext, keyword, scale, save = \
         parse_cmd_line()
 
     # Create an instance of the animation class, initializing with the cmd line args
     animation_obj = AnimationObj(path, suffix, x_center,
-                     y_center, dx, dy, ext, keyword, save)
+                     y_center, dx, dy, ext, keyword, scale, save)
 
     # Call the method to create the actual animation
     animation_obj.animate()
