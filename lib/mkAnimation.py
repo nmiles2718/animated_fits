@@ -3,9 +3,11 @@
 Script for creating an animated matplotlib plot using user supplied cmd line
 arguments or preset default values. 
 """
+# TODO: Add functionaltiy for plotting with astropy WCS alginment.
+
 import argparse
 from astropy.io import fits
-from astropy.stats import sigma_clip
+from astropy.wcs import WCS
 from astropy.visualization import LinearStretch,ZScaleInterval,\
     LogStretch,SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
@@ -110,7 +112,7 @@ class AnimationObj(object):
         # Initialize parameters for plotting the data
         self.im = None
         self.fig = plt.figure(figsize=(8,6))
-        self.ax = self.fig.add_subplot(1, 1, 1)
+        self.ax = self.fig.add_subplot(1,1,1)
         self.flist = []
         self.img_data = []
         self.key_values = []
@@ -142,7 +144,7 @@ class AnimationObj(object):
         
         self.im.set_array(self.img_data[i])
         if self.keyword:
-            self.ax.set_title('{}(flashed), {} = {}'.
+            self.ax.set_title('{}, {} = {}'.
                 format(os.path.basename(self.flist[i]),
                               self.keyword,
                               self.key_values[i]))
@@ -228,10 +230,12 @@ class AnimationObj(object):
                 if self.keyword:
                     self.grab_header_value(f)
             
+
+
             if self.keyword:
                 self.quick_sort()  # Sort the data
                 # Initialize some plot things
-                self.ax.set_title('{}(flashed), {} = {}'.
+                self.ax.set_title('{}, {} = {}'.
                                   format(os.path.basename(self.flist[0]),
                                          self.keyword,
                                          self.key_values[0]))
@@ -246,7 +250,7 @@ class AnimationObj(object):
             offset=0
             if 'raw' in self.suffix:
                 offset=24
-            rect = patches.Rectangle((3490+offset,340),40,40,
+            rect = patches.Rectangle((1522+offset,1733),40,40,
                                      linewidth=1.5,
                                      edgecolor='r',
                                      facecolor='none')
@@ -260,7 +264,7 @@ class AnimationObj(object):
                 vmin = input('vmin for scaling: ')
                 vmax = input('vmax for scaling: ')
                 norm = ImageNormalize(self.img_data[idx],
-                                      stretch=LinearStretch(),
+                                      stretch=SqrtStretch(),
                                       vmin=float(vmin),
                                       vmax=float(vmax))
             else:
