@@ -73,6 +73,11 @@ parser.add_argument("-save",
                     type=str,
                     default=None)
 
+parser.add_argument("-fps",
+                    help="Frame rate for animation",
+                    type=float,
+                    default=2)
+
 
 class AnimationObj(object):
     """
@@ -84,7 +89,7 @@ class AnimationObj(object):
     """
     def __init__(self, path, suffix,
                  x_center, y_center, dx, dy,
-                 ext, keyword, scale, save):
+                 ext, keyword, scale, save, fps):
         """
         Parameters
         ----------
@@ -109,6 +114,7 @@ class AnimationObj(object):
         self.keyword = keyword
         self.scale = scale
         self.save = save
+        self.fps = fps
         # Initialize parameters for plotting the data
         self.im = None
         self.fig = plt.figure(figsize=(8,6))
@@ -166,7 +172,6 @@ class AnimationObj(object):
     def grab_header_value(self, fname):
         """ 
         Grab the header value for the given file
-        
         """
         if self.keyword in self.possible_keywords.keys():
             value = fits.getval(fname, keyword=self.keyword)
@@ -247,14 +252,16 @@ class AnimationObj(object):
             self.ax.set_ylabel('Y [pix]')
             # Offset to account for overscan columns in raw images.
             # 1522, 1773 blob location
+            blob1 = (1522, 1773)
+            blob2 = (3510, 350)
             offset=0
             if 'raw' in self.suffix:
                 offset=24
-            rect = patches.Rectangle((1522+offset,1733),40,40,
-                                     linewidth=1.5,
-                                     edgecolor='r',
-                                     facecolor='none')
-            self.ax.add_patch(rect)
+            # rect = patches.Rectangle((1522-20+offset,1753),40,40,
+            #                          linewidth=1.5,
+            #                          edgecolor='r',
+            #                          facecolor='none')
+            # self.ax.add_patch(rect)
             # Grab index value to set the normalization/stretch
             idx = int(len(self.flist)/2)
 
@@ -295,14 +302,14 @@ class AnimationObj(object):
             # Start the animation
             ani = animation.FuncAnimation(self.fig, self.updatefig,
                                           frames=len(self.flist),
-                                          interval=500, blit=False)
+                                          interval=1000/self.fps, blit=False)
 
             if self.save and'gif' in self.save:
                 ani.save(filename=self.save, writer='imagemagick',
-                         fps=2, bitrate=300)
+                         fps=self.fps, bitrate=300)
             elif self.save and 'mp4' in self.save:
                 ani.save(filename=self.save, writer='ffmpeg',
-                         dpi=180, bitrate=300)
+                         dpi=180, fps=self.fps,bitrate=300)
             else:
                 plt.show()
         else:
@@ -324,19 +331,22 @@ def parse_cmd_line():
     keyword = args.keyword
     scale = args.scale
     save = args.save
-    return path, suffix, x_center, y_center, dx, dy, ext, keyword, scale, save
+    fps = args.fps
+    return path, suffix, x_center, y_center, \
+           dx, dy, ext, keyword, scale, save, fps
 
 
 def main():
     """ Create the animation using user supplied cmd-line args (or defaults)
     """
     # Parse cmd line args, if none provided uses defaults set above
-    path, suffix, x_center, y_center, dx, dy, ext, keyword, scale, save = \
+    path, suffix, x_center, y_center, dx, dy, ext, keyword, scale, save, fps =\
         parse_cmd_line()
 
-    # Create an instance of the animation class, initializing with the cmd line args
+    # Create an instance of the animation class
+    # Initialize with the cmd line args
     animation_obj = AnimationObj(path, suffix, x_center,
-                     y_center, dx, dy, ext, keyword, scale, save)
+                     y_center, dx, dy, ext, keyword, scale, save, fps)
 
     # Call the method to create the actual animation
     animation_obj.animate()
