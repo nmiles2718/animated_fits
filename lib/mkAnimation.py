@@ -20,9 +20,10 @@ import matplotlib.animation as animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import os
-
 mpl.rcParams['animation.writer']='imagemagick'
 mpl.rcParams['savefig.bbox']='standard'
+
+
 parser = argparse.ArgumentParser(description="Create an animation of slices"
                                              " from a list of fits images")
 
@@ -276,10 +277,8 @@ class AnimationObj(object):
                                       vmax=float(vmax))
             else:
                 norm = ImageNormalize(self.img_data[idx],
-                                      stretch=SqrtStretch(),
-                                      # interval=ZScaleInterval())
-                                      vmin=0,
-                                      vmax=175)
+                                      stretch=LinearStretch(),
+                                      interval=ZScaleInterval())
             # Draw the first image
             if self.dx and self.dy and self.x_center and self.y_center:
                 self.im = self.ax.imshow(self.img_data[0],
