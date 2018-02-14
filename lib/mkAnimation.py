@@ -12,6 +12,7 @@ from astropy.visualization import LinearStretch,ZScaleInterval,\
     LogStretch,SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 import datetime as dt
+from PIL import Image
 import glob
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -133,14 +134,18 @@ class AnimationObj(object):
         """
         Grab the data from the image
         """
-        hdulist = fits.open(fname)
-        chip = hdulist[self.ext].data
+
+        im = Image.open(fname)
+        chip = np.array(im)
+
+        # hdulist = fits.open(fname)
+        # chip = hdulist[self.ext].data
         if self.x_center and self.y_center and self.dx and self.dy:
             y1 = self.y_center - self.dy
             y2 = self.y_center + self.dy
             x1 = self.x_center - self.dx
             x2 = self.x_center + self.dx
-            chip_slice = 0.5079*chip[y1:y2, x1:x2]
+            chip_slice = chip[y1:y2, x1:x2]
             self.img_data.append(chip_slice)
         else:
             self.img_data.append(chip)
@@ -211,12 +216,12 @@ class AnimationObj(object):
         if self.flist:
 
             print('Found a total of {} images'.format(len(self.flist)))
-            try:
-                img_units = fits.getval(self.flist[0],
-                                        keyword='bunit',
-                                        ext=self.ext)
-            except KeyError:
-                img_units = ''
+            # try:
+            #     img_units = fits.getval(self.flist[0],
+            #                             keyword='bunit',
+            #                             ext=self.ext)
+            # except KeyError:
+            img_units = ''
             # TODO: figure how to parallelize the opening of fits files
             '''
             Currently fails because you cannot fork a GUI process. I need
@@ -233,41 +238,41 @@ class AnimationObj(object):
 
             for f in self.flist:
                 self.grab_data(f)
-                if self.keyword:
-                    self.grab_header_value(f)
+                # if self.keyword:
+                #     self.grab_header_value(f)
             
 
 
-            if self.keyword:
-                self.quick_sort()  # Sort the data
-                # Initialize some plot things
-                self.ax.set_title('{}, {} = {}'.
-                                  format(os.path.basename(self.flist[0]),
-                                         self.keyword,
-                                         self.key_values[0]))
-
-                
-            else:
-                self.ax.set_title('{}'.format(os.path.basename(self.flist[0])))
-            self.ax.set_xlabel('X [pix]')
-            self.ax.set_ylabel('Y [pix]')
-            # Offset to account for overscan columns in raw images.
-            # 1522, 1773 blob location
-            blob1 = (1522, 1773)
-            blob2 = (3510, 350)
-            offset=0
-            if 'raw' in self.suffix:
-                offset=24
+            # if self.keyword:
+            #     self.quick_sort()  # Sort the data
+            #     # Initialize some plot things
+            #     self.ax.set_title('{}, {} = {}'.
+            #                       format(os.path.basename(self.flist[0]),
+            #                              self.keyword,
+            #                              self.key_values[0]))
+            #
+            #
+            # else:
+            #     self.ax.set_title('{}'.format(os.path.basename(self.flist[0])))
+            # self.ax.set_xlabel('X [pix]')
+            # self.ax.set_ylabel('Y [pix]')
+            # # Offset to account for overscan columns in raw images.
+            # # 1522, 1773 blob location
+            # blob1 = (1522, 1773)
+            # blob2 = (3510, 350)
+            # offset=0
+            # if 'raw' in self.suffix:
+            #     offset=24
             # rect = patches.Rectangle((1522-20+offset,1753),40,40,
             #                          linewidth=1.5,
             #                          edgecolor='r',
             #                          facecolor='none')
             # self.ax.add_patch(rect)
-            # Grab index value to set the normalization/stretch
+            # # Grab index value to set the normalization/stretch
             idx = int(len(self.flist)/2)
 
 
-            # Set the scaling to match ds9 z-scale with linear stretch
+            # # Set the scaling to match ds9 z-scale with linear stretch
             if self.scale:
                 vmin = input('vmin for scaling: ')
                 vmax = input('vmax for scaling: ')
@@ -282,23 +287,24 @@ class AnimationObj(object):
             # Draw the first image
             if self.dx and self.dy and self.x_center and self.y_center:
                 self.im = self.ax.imshow(self.img_data[0],
-                                         animated=True, origin='lower',
-                                         norm=norm, cmap='gray',
+                                         animated=True,
+                                         # norm=norm, cmap='gray',
                                          extent=[self.x_center - self.dx,
                                                  self.x_center + self.dx,
                                                  self.y_center - self.dy,
                                                  self.y_center + self.dy])
             else:
                 self.im = self.ax.imshow(self.img_data[0],
-                                         animated=True, origin='lower',
-                                         norm=norm, cmap='gray')
+                                         animated=True)#, origin='lower')
+                                         # norm=norm, cmap='gray')
 
             # Add a nice colorbar with a label showing the img units
-            divider = make_axes_locatable(self.ax)
-            cax = divider.append_axes('right', size='5%', pad=0.1)
-            cbar = self.fig.colorbar(self.im, cax=cax, orientation='vertical')
-            cbar.set_label(img_units)
+            # divider = make_axes_locatable(self.ax)
+            # cax = divider.append_axes('right', size='5%', pad=0.1)
+            # cbar = self.fig.colorbar(self.im, cax=cax, orientation='vertical')
+            # cbar.set_label(img_units)
             # Start the animation
+            plt.axis('off')
             ani = animation.FuncAnimation(self.fig, self.updatefig,
                                           frames=len(self.flist),
                                           interval=1000/self.fps, blit=False)
@@ -310,6 +316,7 @@ class AnimationObj(object):
                 ani.save(filename=self.save, writer='ffmpeg',
                          dpi=180, fps=self.fps,bitrate=300)
             else:
+
                 plt.show()
         else:
             print('No files were found at {}'.format(self.path+self.suffix))
