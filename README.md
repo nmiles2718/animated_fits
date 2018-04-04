@@ -4,3 +4,6 @@
         - `conda config --add channels conda-forge`
    2) Install ffmpeg and its dependencies into your active environment 
         - `conda install ffmpeg`
+        
+## Example Output:
+![](https://github.com/nmiles2718/animated_fits/blob/master/saturn_transit1.gif "Titan Transiting Saturn")
