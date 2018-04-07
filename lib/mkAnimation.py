@@ -20,8 +20,12 @@ import matplotlib.animation as animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import os
-mpl.rcParams['animation.writer']='imagemagick'
+from PIL import Image
+
+
+mpl.rcParams['animation.writer']='imagemagick_file'
 mpl.rcParams['savefig.bbox']='standard'
+
 
 
 parser = argparse.ArgumentParser(description="Create an animation of slices"
@@ -82,9 +86,9 @@ parser.add_argument("-fps",
 
 class AnimationObj(object):
     """
-    This class is intended to create an animated matplotlib plot given a list 
-    of input parameters. There are two ways to use this; the first is from the 
-    command line and the second is by importing this into your scripts and 
+    This class is intended to create an animated matplotlib plot given a list
+    of input parameters. There are two ways to use this; the first is from the
+    command line and the second is by importing this into your scripts and
     instantiating the class with your desired inputs, then calling the
     AnimationObj.animate() method with a set of files.
     """
@@ -126,6 +130,9 @@ class AnimationObj(object):
         self.possible_keywords = {'darktime': 0.,
                                   'exptime': 0.,
                                   'flashdur': 0.,
+                                  'CRSIGMAS':'',
+                                  'expstart':0,
+                                  'filter1':'',
                                   'date-obs': '%Y-%m-%d %H:%M:%S',
                                   'useafter': '%b %d %Y %H:%M:%S'}
 
@@ -133,14 +140,17 @@ class AnimationObj(object):
         """
         Grab the data from the image
         """
-        hdulist = fits.open(fname)
-        chip = hdulist[self.ext].data
+        if 'fits' in fname:
+            hdulist = fits.open(fname)
+            chip = hdulist[self.ext].data
+        else:
+            chip = Image.open(fname)
         if self.x_center and self.y_center and self.dx and self.dy:
             y1 = self.y_center - self.dy
             y2 = self.y_center + self.dy
             x1 = self.x_center - self.dx
             x2 = self.x_center + self.dx
-            chip_slice = 0.5079*chip[y1:y2, x1:x2]
+            chip_slice = chip[y1:y2, x1:x2]
             self.img_data.append(chip_slice)
         else:
             self.img_data.append(chip)
@@ -148,7 +158,7 @@ class AnimationObj(object):
     def updatefig(self, i):
         """Update the figure to display the ith frame.
         """
-        
+
         self.im.set_array(self.img_data[i])
         if self.keyword:
             self.ax.set_title('{}, {} = {}'.
@@ -157,6 +167,7 @@ class AnimationObj(object):
                               self.key_values[i]))
         else:
             self.ax.set_title('{}'.format(os.path.basename(self.flist[i])))
+
         return [self.im]
 
     def quick_sort(self):
@@ -171,7 +182,7 @@ class AnimationObj(object):
         self.flist, self.key_values, self.img_data = zip(*zipped_list)
 
     def grab_header_value(self, fname):
-        """ 
+        """
         Grab the header value for the given file
         """
         if self.keyword in self.possible_keywords.keys():
@@ -195,7 +206,7 @@ class AnimationObj(object):
 
     def animate(self, flist=None):
         """ Class method for creating the actual animated plot.
-        
+
         Parameters
         ----------
         flist -- User specified list of files, only used when run interactively
@@ -215,7 +226,7 @@ class AnimationObj(object):
                 img_units = fits.getval(self.flist[0],
                                         keyword='bunit',
                                         ext=self.ext)
-            except KeyError:
+            except Exception:
                 img_units = ''
             # TODO: figure how to parallelize the opening of fits files
             '''
@@ -233,12 +244,12 @@ class AnimationObj(object):
 
             for f in self.flist:
                 self.grab_data(f)
-                if self.keyword:
+                if self.keyword and 'fits' in f:
                     self.grab_header_value(f)
-            
 
 
-            if self.keyword:
+
+            if self.keyword and 'fits' in self.flist[0]:
                 self.quick_sort()  # Sort the data
                 # Initialize some plot things
                 self.ax.set_title('{}, {} = {}'.
@@ -246,7 +257,7 @@ class AnimationObj(object):
                                          self.keyword,
                                          self.key_values[0]))
 
-                
+
             else:
                 self.ax.set_title('{}'.format(os.path.basename(self.flist[0])))
             self.ax.set_xlabel('X [pix]')
@@ -255,14 +266,16 @@ class AnimationObj(object):
             # 1522, 1773 blob location
             blob1 = (1522, 1773)
             blob2 = (3510, 350)
+            patch_coords = (self.x_center, self.y_center)
             offset=0
             if 'raw' in self.suffix:
                 offset=24
-            # rect = patches.Rectangle((1522-20+offset,1753),40,40,
+            # rect = patches.Rectangle((1275-50+offset,850-50+offset),100,100,
             #                          linewidth=1.5,
             #                          edgecolor='r',
             #                          facecolor='none')
             # self.ax.add_patch(rect)
+
             # Grab index value to set the normalization/stretch
             idx = int(len(self.flist)/2)
 
@@ -272,7 +285,7 @@ class AnimationObj(object):
                 vmin = input('vmin for scaling: ')
                 vmax = input('vmax for scaling: ')
                 norm = ImageNormalize(self.img_data[idx],
-                                      stretch=SqrtStretch(),
+                                      stretch=LinearStretch(),
                                       vmin=float(vmin),
                                       vmax=float(vmax))
             else:
@@ -281,13 +294,19 @@ class AnimationObj(object):
                                       interval=ZScaleInterval())
             # Draw the first image
             if self.dx and self.dy and self.x_center and self.y_center:
+                central_point = patches.Rectangle((patch_coords[0] ,
+                                                   patch_coords[1] ),
+                                                  width=1, height=1,
+                                                  alpha=1.0, fill=False,
+                                                  linewidth=3.0, color='red')
+                self.ax.add_patch(central_point)
                 self.im = self.ax.imshow(self.img_data[0],
                                          animated=True, origin='lower',
                                          norm=norm, cmap='gray',
-                                         extent=[self.x_center - self.dx,
-                                                 self.x_center + self.dx,
-                                                 self.y_center - self.dy,
-                                                 self.y_center + self.dy])
+                                         extent=[self.x_center - self.dx - 0.5,
+                                                 self.x_center + self.dx + 0.5,
+                                                 self.y_center - self.dy - 0.5,
+                                                 self.y_center + self.dy + 0.5])
             else:
                 self.im = self.ax.imshow(self.img_data[0],
                                          animated=True, origin='lower',
@@ -298,13 +317,15 @@ class AnimationObj(object):
             cax = divider.append_axes('right', size='5%', pad=0.1)
             cbar = self.fig.colorbar(self.im, cax=cax, orientation='vertical')
             cbar.set_label(img_units)
+
             # Start the animation
             ani = animation.FuncAnimation(self.fig, self.updatefig,
                                           frames=len(self.flist),
                                           interval=1000/self.fps, blit=False)
-
-            if self.save and'gif' in self.save:
-                ani.save(filename=self.save, writer='imagemagick',
+            print(mpl.rcParams['savefig.bbox'])
+            # Either save the output or display it.
+            if self.save and 'gif' in self.save:
+                ani.save(filename=self.save, writer='imagemagick_file',
                          fps=self.fps, bitrate=300)
             elif self.save and 'mp4' in self.save:
                 ani.save(filename=self.save, writer='ffmpeg',
