@@ -144,6 +144,7 @@ class AnimationObj(object):
             hdulist = fits.open(fname)
             chip = hdulist[self.ext].data
         else:
+            # cheap way to handle png or jpeg
             chip = Image.open(fname)
         if self.x_center and self.y_center and self.dx and self.dy:
             y1 = self.y_center - self.dy
@@ -156,7 +157,8 @@ class AnimationObj(object):
             self.img_data.append(chip)
 
     def updatefig(self, i):
-        """Update the figure to display the ith frame.
+        """
+        Update the figure to display the ith frame.
         """
 
         self.im.set_array(self.img_data[i])
@@ -186,7 +188,11 @@ class AnimationObj(object):
         Grab the header value for the given file
         """
         if self.keyword in self.possible_keywords.keys():
-            value = fits.getval(fname, keyword=self.keyword)
+            try:
+                value = fits.getval(fname, keyword=self.keyword, ext=0)
+            except KeyError as e:
+                print('Keyword not in primary header, checking science header')
+                value = fits.getval(fname, keyword=self.keyword, ext=1)
             if isinstance(value, str):
                 try:
                     date = \
@@ -226,8 +232,10 @@ class AnimationObj(object):
                 img_units = fits.getval(self.flist[0],
                                         keyword='bunit',
                                         ext=self.ext)
-            except Exception:
-                img_units = ''
+            except KeyError:
+                print('Keyword for image units not found.')
+                img_units = input('Please enter units: ')
+
             # TODO: figure how to parallelize the opening of fits files
             '''
             Currently fails because you cannot fork a GUI process. I need
@@ -262,25 +270,13 @@ class AnimationObj(object):
                 self.ax.set_title('{}'.format(os.path.basename(self.flist[0])))
             self.ax.set_xlabel('X [pix]')
             self.ax.set_ylabel('Y [pix]')
-            # Offset to account for overscan columns in raw images.
-            # 1522, 1773 blob location
-            blob1 = (1522, 1773)
-            blob2 = (3510, 350)
-            patch_coords = (self.x_center, self.y_center)
-            offset=0
-            if 'raw' in self.suffix:
-                offset=24
-            # rect = patches.Rectangle((1275-50+offset,850-50+offset),100,100,
-            #                          linewidth=1.5,
-            #                          edgecolor='r',
-            #                          facecolor='none')
-            # self.ax.add_patch(rect)
 
             # Grab index value to set the normalization/stretch
             idx = int(len(self.flist)/2)
 
 
             # Set the scaling to match ds9 z-scale with linear stretch
+            # Not to avoid issues of import
             if self.scale:
                 vmin = input('vmin for scaling: ')
                 vmax = input('vmax for scaling: ')
@@ -298,7 +294,7 @@ class AnimationObj(object):
                                                    patch_coords[1] ),
                                                   width=1, height=1,
                                                   alpha=1.0, fill=False,
-                                                  linewidth=3.0, color='red')
+                                                  linewidth=1.75, color='red')
                 self.ax.add_patch(central_point)
                 self.im = self.ax.imshow(self.img_data[0],
                                          animated=True, origin='lower',
@@ -322,7 +318,7 @@ class AnimationObj(object):
             ani = animation.FuncAnimation(self.fig, self.updatefig,
                                           frames=len(self.flist),
                                           interval=1000/self.fps, blit=False)
-            print(mpl.rcParams['savefig.bbox'])
+
             # Either save the output or display it.
             if self.save and 'gif' in self.save:
                 ani.save(filename=self.save, writer='imagemagick_file',
