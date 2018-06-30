@@ -69,7 +69,7 @@ parser.add_argument("-keyword",
                     default=None)
 
 parser.add_argument("-scale",
-                    help="apply min/max scaling (default is z-scale)",
+                    help="apply custom scaling vmin, vmax (default is z-scale)",
                     action='store_true')
 
 parser.add_argument("-save",
@@ -195,8 +195,12 @@ class AnimationObj(object):
                 value = fits.getval(fname, keyword=self.keyword, ext=1)
             if isinstance(value, str):
                 try:
+                    time_obs = fits.getval(fname, keyword='time-obs', ext=0)
+                except KeyError:
+                    time_obs = fits.getval(fname, keyword='time-obs', ext=1)
+                try:
                     date = \
-                        dt.datetime.strptime(value,
+                        dt.datetime.strptime(value+' '+time_obs,
                                              self.possible_keywords[
                                                  self.keyword])
                 except ValueError:
@@ -272,8 +276,8 @@ class AnimationObj(object):
             self.ax.set_ylabel('Y [pix]')
 
             # Grab index value to set the normalization/stretch
-            idx = int(len(self.flist)/2)
-
+            # idx = int(len(self.flist)/2)
+            idx = 0
 
             # Set the scaling to match ds9 z-scale with linear stretch
             # Not to avoid issues of import
