@@ -122,7 +122,7 @@ class AnimationObj(object):
         self.fps = fps
         # Initialize parameters for plotting the data
         self.im = None
-        self.fig = plt.figure(figsize=(8,6))
+        self.fig = plt.figure(figsize=(5,4))
         self.ax = self.fig.add_subplot(1,1,1)
         self.flist = []
         self.img_data = []
@@ -326,10 +326,10 @@ class AnimationObj(object):
             # Either save the output or display it.
             if self.save and 'gif' in self.save:
                 ani.save(filename=self.save, writer='imagemagick_file',
-                         fps=self.fps, bitrate=300)
+                         fps=self.fps, bitrate=150)
             elif self.save and 'mp4' in self.save:
                 ani.save(filename=self.save, writer='ffmpeg',
-                         dpi=180, fps=self.fps,bitrate=300)
+                         dpi=180, fps=self.fps,bitrate=150)
             else:
                 plt.show()
         else:
